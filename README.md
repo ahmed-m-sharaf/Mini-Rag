@@ -1,2 +1,0 @@
-# Mini-Rag
-Mini-Rag
