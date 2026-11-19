@@ -1,4 +1,3 @@
-from openai.types.live import media_session_config_param
 from qdrant_client import models, QdrantClient
 from ..VectorDBInterface import VectorDBInterface
 from ..VectorDBEnums import DistanceMethodEnums
@@ -68,10 +67,11 @@ class QdrantDBProvider(VectorDBInterface):
             return False
         
         try:
-            _ = self.client.upload_records(
+            _ = self.client.upsert(
                 collection_name = collection_name,
-                records = [
-                    models.Record(
+                points = [
+                    models.PointStruct(
+                        id = record_id,
                         vector=vector,
                         payload={
                             "text": text,
@@ -96,32 +96,30 @@ class QdrantDBProvider(VectorDBInterface):
             metadata = [None] * len(texts)
             
         if record_ids is None:
-            record_ids = [None] * len(texts)
+            record_ids = list(range(0, len(texts)))
         
         for i in range(0, len(texts), batch_size):
-            batch_end = i + batch_size
-            
-            batch_texts = texts[i:batch_end]
-            batch_vectors = vectors[i:batch_end]
-            batch_metadata = metadata[i:batch_end]
+            batch_end = min(i + batch_size, len(texts))
             
             batch_records = [
                 
-                models.Record(
-                    vector=batch_vectors[x],
+                models.PointStruct(
+                    id = record_ids[x],
+                    vector=vectors[x],
                     payload={
-                        "text": batch_texts[x],
-                        "metadata": batch_metadata[x]
+                        "text": texts[x],
+                        "metadata": metadata[x]
                     }
                 )
                 
-                for x in range(len(batch_texts))
+                for x in range(i, batch_end)
             ]
             
             try:
-                _ = self.client.upload_records(
+                _ = self.client.upsert(
                     collection_name=collection_name,
-                    records = batch_records
+                    points = batch_records,
+                    wait = True
                 )
             except Exception as e:
                 self.logger.error(f"Error while inserting batch: {e}")
@@ -131,8 +129,11 @@ class QdrantDBProvider(VectorDBInterface):
     
     def search_by_vector(self, collection_name: str,
                         vector: list, limit: int = 5):
-        return self.client.search(
+        return self.client.query_points(
             collection_name=collection_name,
-            query_vector = vector,
-            limit = limit
+            query = vector,
+            limit = limit,
+            with_payload=True,
+            with_vectors=False
         )
+        
