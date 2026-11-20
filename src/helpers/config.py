@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     VECTOR_DB_PATH: str
     VECTOR_DB_DISTANCE_METHOD: str = None
     
+    PRIMARY_LANGUAGE: str
+    DEFAULT_LANGUAGE: str
+    
     # Must be write like this
     class Config:
         env_file = ".env" # all in this file loaded and can use it
